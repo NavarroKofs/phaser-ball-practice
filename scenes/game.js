@@ -48,7 +48,7 @@ export class Game extends Phaser.Scene {
 
     this.bricks = this.physics.add.staticGroup({
       key: ["blueBrick", "greenBrick", "orangeBrick", "blackBrick"],
-      frameQuantity: 1,
+      frameQuantity: 10,
       gridAlign: {
         width: 10,
         height: 4,
