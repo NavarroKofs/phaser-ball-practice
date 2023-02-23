@@ -9,7 +9,6 @@ export class PhaseConstructor {
   constructor(scene) {
     this.relatedScene = scene;
     this.phases = [Phase6, Phase5, Phase4, Phase3, Phase2, Phase1];
-    this.phases = [ Phase5, Phase1];
   }
 
   create() {

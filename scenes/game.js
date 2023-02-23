@@ -1,6 +1,11 @@
+import { Ball } from "../components/Ball";
 import { LiveCounter } from "../components/LiveCounter";
-import { PhaseConstructor } from "../components/PhaseConstructor";
+import { PhaseConstructor } from "../components/phases/PhaseConstructor";
+import { Platform } from "../components/Platform";
 import { Scoreboard } from "../components/Scoreboard";
+
+const INITIAL_LIVES = 3;
+const INITIAL_VELOCITY_X = -60;
 
 export class Game extends Phaser.Scene {
   constructor() {
@@ -9,8 +14,10 @@ export class Game extends Phaser.Scene {
 
   init() {
     this.phaseConstructor = new PhaseConstructor(this);
+    this.platform = new Platform(this);
+    this.ball = new Ball(this);
     this.scoreboard = new Scoreboard(this);
-    this.counter = new LiveCounter(this, 3);
+    this.counter = new LiveCounter(this, INITIAL_LIVES);
   }
 
   preload() {
@@ -64,25 +71,19 @@ export class Game extends Phaser.Scene {
     this.add.image(410, 250, "background");
     this.scoreboard.create();
     this.counter.create();
-
-    this.platform = this.physics.add.image(400, 460, "platform").setImmovable();
-    this.platform.body.allowGravity = false;
-    this.platform.setCollideWorldBounds(true);
-
-    this.ball = this.physics.add.image(400, 440, "ball");
-    this.ball.setBounce(1);
-    this.ball.setCollideWorldBounds(true);
-    this.ball.setData("glue", true);
+    this.platform.create();
+    this.ball.create();
 
     this.physics.add.collider(
-      this.ball,
-      this.platform,
+      this.ball.get(),
+      this.platform.get(),
       this.platformImpact,
       null,
       this
     );
 
     this.phaseConstructor.create();
+    this.createAnimations();
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
@@ -92,16 +93,63 @@ export class Game extends Phaser.Scene {
     );
   }
 
+  createAnimations() {
+    this.anims.create({
+      key: "blueDiamondAnimation",
+      frames: this.anims.generateFrameNumbers("blueDiamond", {
+        start: 0,
+        end: 7,
+      }),
+      frameRate: 10,
+      repeat: -1,
+      yoyo: true,
+    });
+    this.anims.create({
+      key: "redDiamondAnimation",
+      frames: this.anims.generateFrameNumbers("redDiamond", {
+        start: 0,
+        end: 7,
+      }),
+      frameRate: 10,
+      repeat: -1,
+      yoyo: true,
+    });
+    this.anims.create({
+      key: "greenDiamondAnimation",
+      frames: this.anims.generateFrameNumbers("greenDiamond", {
+        start: 0,
+        end: 7,
+      }),
+      frameRate: 10,
+      repeat: -1,
+      yoyo: true,
+    });
+  }
+
   platformImpact(ball, platform) {
-    if (!this.ball.getData("glue")) {
-      this.platformImpactSample.play();
-      this.scoreboard.incrementPoints(1);
-      let relativeImpact = ball.x - platform.x;
-      if (relativeImpact < 0.1 && relativeImpact > -0.1) {
-        ball.setVelocityX(Phaser.Math.Between(-10, 10));
-      } else {
-        ball.setVelocityX(10 * relativeImpact);
-      }
+    this.platformImpactSample.play();
+    this.scoreboard.incrementPoints(1);
+    let relativeImpact = ball.x - platform.x;
+    if (this.platform.hasGluePower()) {
+      ball.setVelocityY(0);
+      ball.setVelocityX(0);
+      this.glueRecordVelocityX = this.calculateVelocity(relativeImpact);
+      this.platform.hasBallGlued = true;
+    } else {
+      ball.setVelocityX(this.calculateVelocity(relativeImpact));
+    }
+  }
+
+  calculateVelocity(relativeImpact) {
+    if (relativeImpact > 50) {
+      relativeImpact = 50;
+    }
+    if (relativeImpact > 0) {
+      return 8 * relativeImpact;
+    } else if (relativeImpact < 0) {
+      return 8 * relativeImpact;
+    } else {
+      return Phaser.Math.Between(-10, 10);
     }
   }
 
@@ -112,7 +160,7 @@ export class Game extends Phaser.Scene {
     if (this.phaseConstructor.isPhaseFinished()) {
       this.phaseChangeSample.play();
       this.phaseConstructor.nextLevel();
-      this.setInitialPlatformState();
+      this.platform.setInitialState(this.ball);
     }
   }
 
@@ -126,43 +174,42 @@ export class Game extends Phaser.Scene {
     this.scene.start("congratulations");
   }
 
-  setInitialPlatformState() {
-    this.liveLostSample.play();
-    this.platform.x = 400;
-    this.platform.y = 460;
-    this.ball.setVelocity(0, 0);
-    this.ball.x = 400;
-    this.ball.y = 440;
-    this.ball.setData("glue", true);
+  increaseLives() {
+    this.counter.increase();
+  }
+
+  removeGlueFromBall() {
+    this.ball.removeGlue();
+  }
+
+  setGluePower() {
+    this.platform.setGluePower();
+  }
+
+  setPlatformBig() {
+    this.platform.setBigSize();
   }
 
   update() {
-    if (this.keyA.isDown) {
-      this.platform.setVelocityX(-500);
-      if (this.ball.getData("glue")) {
-        this.ball.setVelocityX(-500);
-      }
-    } else if (this.keyD.isDown) {
-      this.platform.setVelocityX(500);
-      if (this.ball.getData("glue")) {
-        this.ball.setVelocityX(500);
-      }
-    } else {
-      this.platform.setVelocityX(0);
-      if (this.ball.getData("glue")) {
-        this.ball.setVelocityX(0);
-      }
-    }
-    if (this.ball.y > 500 && this.ball.active) {
+    this.platform.updatePosition(this.ball, this.keyA, this.keyD);
+    if (this.ball.isLost()) {
       let gameFinished = this.counter.liveLost();
       if (!gameFinished) {
-        this.setInitialPlatformState();
+        this.liveLostSample.play();
+        this.platform.setInitialState(this.ball);
+        this.platform.setInitialSize();
+        this.platform.removeGlue();
+        this.glueRecordVelocityX = INITIAL_VELOCITY_X;
       }
     }
-    if (this.keySpace.isDown && this.ball.getData("glue")) {
-      this.startGameSample.play();
-      this.ball.setVelocity(-75, -300);
-      this.ball.setData("glue", false);
+    if (this.keySpace.isDown) {
+      if (this.ball.isGlued) {
+        this.startGameSample.play();
+        this.ball.throw(INITIAL_VELOCITY_X);
+      } else if (this.platform.isGluedBecausePower()) {
+        this.ball.throw(this.glueRecordVelocityX);
+        this.platform.hasBallGlued = false;
+      }
     }
   }
 }

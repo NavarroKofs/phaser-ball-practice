@@ -15,7 +15,7 @@ export class Diamonds {
     let diamond = this.diamonds.create(x, y, sprite);
     diamond.relatedPower = relatedPower;
     diamond.setScale(0.6);
-    diamond.anims.play(sprite + "animation");
+    diamond.anims.play(sprite + "Animation");
     diamond.body.setAllowRotation();
     diamond.body.setAngularVelocity(100);
     diamond.body.setVelocity(

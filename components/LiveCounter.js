@@ -18,20 +18,32 @@ export class LiveCounter {
     this.startButton.setFrame(0);
   }
 
+  increase() {
+    this.lives++;
+    return this.updateCounter();
+  }
+
   liveLost() {
     this.lives--;
+    return this.updateCounter();
+  }
+
+  updateCounter() {
     if (this.lives === 0) {
       this.startButton.setFrame(3);
       setTimeout(() => {
         this.relatedScene.showGameOver();
       }, 500);
-      return true
+      return true;
     }
     if (this.lives === 1) {
       this.startButton.setFrame(2);
     }
     if (this.lives === 2) {
       this.startButton.setFrame(1);
+    }
+    if (this.lives > 2) {
+      this.startButton.setFrame(0);
     }
     return false;
   }
